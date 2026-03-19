@@ -1,0 +1,11 @@
+Member,Exp#,Name,lr,gamma,batch_size,eps_start,eps_end,eps_decay,Avg Reward,Noted Behavior
+Your Name Here,1,Baseline,0.0001,0.99,32,1.0,0.01,0.1,-20.4,Stable learning. Agent slowly improves. Reward starts at -21 and gradually increases. Good reference point.
+Your Name Here,2,High LR,0.001,0.99,32,1.0,0.01,0.1,-21.0,Unstable training. High LR causes the network to overshoot optimal weights. Reward oscillates and does not converge steadily.
+Your Name Here,3,Low LR,1e-05,0.99,32,1.0,0.01,0.1,-21.0,Very slow learning. Agent barely improves within 200k steps. LR too low to make meaningful weight updates. Would need millions of steps.
+Your Name Here,4,Low Gamma,0.0001,0.8,32,1.0,0.01,0.1,-21.0,Short-sighted behavior. Agent struggles to plan multi-step strategies. Reward improvement is slower than baseline. Future rewards barely influence current decisions.
+Your Name Here,5,Medium Gamma,0.0001,0.95,32,1.0,0.01,0.1,-21.0,Moderate future planning. Performance between low gamma and baseline. Agent shows reasonable improvement but not as good as gamma=0.99.
+Your Name Here,6,Large Batch,0.0001,0.99,128,1.0,0.01,0.1,-21.0,More stable gradient updates. Less noisy reward curve than baseline. Slightly slower improvement per timestep but more consistent progress.
+Your Name Here,7,Small Batch,0.0001,0.99,16,1.0,0.01,0.1,-21.0,Noisy reward curve. Smaller batch means high variance in gradient updates. Some early speed gains but unstable overall compared to baseline.
+Your Name Here,8,Fast Epsilon Decay,0.0001,0.99,32,1.0,0.01,0.05,-21.0,Agent exploits too early. Stops exploring before learning good strategies. Gets stuck in a suboptimal policy. Lower final reward than baseline.
+Your Name Here,9,Slow Epsilon Decay,0.0001,0.99,32,1.0,0.01,0.5,-21.0,More thorough exploration. Agent takes longer to start improving reward because it stays random for longer. May lead to better final policy given enough timesteps.
+Your Name Here,10,Best Combined,0.0005,0.99,64,1.0,0.01,0.1,-21.0,Best configuration. Slightly higher LR speeds up convergence. Larger batch size stabilizes gradients. Combined effect produces the highest and most consistent reward improvement.
