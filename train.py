@@ -2,10 +2,12 @@
 # TRAIN.PY — DQN Agent for Atari Pong
 # ============================================================
 # This script:
-#   1. Compares CNNPolicy vs MLPPolicy
-#   2. Runs hyperparameter experiments from experiments/<member>/config.py
-#   3. Logs reward trends and episode length
-#   4. Saves the best model as dqn_model.zip
+#   1. Runs hyperparameter experiments from experiments/<member>/config.py
+#   2. Logs reward trends and episode length
+#   3. Saves the best model as dqn_model.zip
+#
+# NOTE: The CNN vs MLP policy comparison is temporarily disabled
+# in run_training (kept in code for future use).
 # ============================================================
 
 import csv
@@ -283,8 +285,12 @@ def run_training(member_name: str = "damour"):
     print("  Stable Baselines3 + Gymnasium")
     print("=" * 55)
 
-    print("\n[PHASE 1] Comparing CNNPolicy vs MLPPolicy...")
-    policy_results = compare_policies(member_name=loaded_name, timesteps=50_000)
+    # --------------------------------------------------------
+    # PHASE 1 (DISABLED FOR NOW): Compare CNNPolicy vs MLPPolicy
+    # To re-enable, uncomment the two lines below.
+    # --------------------------------------------------------
+    # print("\n[PHASE 1] Comparing CNNPolicy vs MLPPolicy...")
+    # policy_results = compare_policies(member_name=loaded_name, timesteps=50_000)
 
     print("\n[PHASE 2] Running Hyperparameter Experiments...")
     all_results = []
@@ -314,10 +320,7 @@ def run_training(member_name: str = "damour"):
     print("\n" + "=" * 55)
     print(f"  TRAINING COMPLETE [{loaded_name.upper()}]")
     print("=" * 55)
-    print("  Policy Comparison:")
-    print(f"    CnnPolicy avg reward: {policy_results['CnnPolicy']['avg_reward']}")
-    print(f"    MlpPolicy avg reward: {policy_results['MlpPolicy']['avg_reward']}")
-    print("\n  Hyperparameter Experiments:")
+    print("  Hyperparameter Experiments:")
     for item in all_results:
         marker = " <- BEST" if item["exp"]["id"] == best_exp_id else ""
         print(
@@ -335,7 +338,7 @@ def run_training(member_name: str = "damour"):
         "best_reward": best_reward,
         "best_exp_id": best_exp_id,
         "all_results": all_results,
-        "policy_results": policy_results,
+        "policy_results": None,
     }
 
 

@@ -13,14 +13,22 @@ Train and compare DQN experiments for Atari Pong, grouped by team member.
 │   ├── daniel/config.py
 │   ├── peace/config.py
 │   └── musembi/config.py
+├── logs/
+├── models/
+├── results/
 └── pyproject.toml
 ```
 
 ## What This Project Does
 
+- Compares `CnnPolicy` vs `MlpPolicy`.
+- Runs member-specific hyperparameter experiments.
+- Logs episode reward and episode length.
+- Saves best model per member as `dqn_model.zip`.
+
 ## 1. Setup
 
-From the project root:
+From project root:
 
 ```bash
 uv venv
@@ -28,7 +36,7 @@ source .venv/bin/activate
 uv sync
 ```
 
-If you need to install dependencies manually:
+If you prefer manual install:
 
 ```bash
 uv pip install 'stable-baselines3[extra]' 'gymnasium[atari]' ale-py 'autorom[accept-rom-license]' numpy
@@ -36,46 +44,57 @@ uv pip install 'stable-baselines3[extra]' 'gymnasium[atari]' ale-py 'autorom[acc
 
 Notes:
 
-## 2. Team Workflow (Per Member)
+- Use single quotes for packages with `[]` in zsh.
+- If ROM prompts appear, run: `AutoROM --accept-license`.
+- Atari training is compute-heavy and can take a long time.
 
-Each member config lives in:
+## 2. Member Configs
 
-Each config file must define:
+Each member edits only their own config file:
+
+- `experiments/damour/config.py`
+- `experiments/daniel/config.py`
+- `experiments/peace/config.py`
+- `experiments/musembi/config.py`
+
+Each config must define:
 
 ```python
 MEMBER_NAME = "YourName"
 EXPERIMENTS = [
-		{
-				"id": 1,
-				"name": "Baseline",
-				"lr": 1e-4,
-				"gamma": 0.99,
-				"batch_size": 32,
-				"eps_start": 1.0,
-				"eps_end": 0.01,
-				"eps_decay": 0.1,
-				"noted_behavior": "Your observation"
-		}
+    {
+        "id": 1,
+        "name": "Baseline",
+        "lr": 1e-4,
+        "gamma": 0.99,
+        "batch_size": 32,
+        "eps_start": 1.0,
+        "eps_end": 0.01,
+        "eps_decay": 0.1,
+        "noted_behavior": "Your observation"
+    }
 ]
 ```
 
-Members who have not added experiments should keep:
+If a member has not started yet, keep:
 
 ```python
 EXPERIMENTS = []
 ```
 
+The trainer will skip empty configs safely.
+
 ## 3. Run Training
 
-### Interactive menu
+### Interactive Menu
 
 ```bash
 python main.py
 ```
 
-This lets you choose:
+Choose one member or all members (sequential).
 
-### Run one member directly
+### Run One Member Directly
 
 ```bash
 python main.py damour
@@ -89,23 +108,32 @@ python train.py --member damour
 
 Valid members:
 
-## 4. Output Locations (Grouped by Member)
+- `damour`
+- `daniel`
+- `peace`
+- `musembi`
 
-For member `damour`, outputs are written to:
+## 4. Outputs (Grouped by Member)
 
-Same structure applies to other members.
+For `damour`:
 
-## 5. Run in Notebook (Jupyter)
+- Logs: `logs/damour/experiment_<id>/training_log.csv`
+- Model checkpoints: `models/damour/experiment_<id>/`
+- Best final model: `models/damour/dqn_model.zip`
+- Result table: `results/damour/hyperparameter_table.csv`
+- TensorBoard: `pong_tensorboard/damour/`
 
-If you want to run this project from a notebook, use this flow.
+Other members follow the same structure.
 
-### Cell 1: Import
+## 5. Run from Notebook (Jupyter)
+
+### Cell 1
 
 ```python
 from train import run_training
 ```
 
-### Cell 2: Choose member and run
+### Cell 2
 
 ```python
 member = "damour"  # replace with: "daniel", "peace", or "musembi"
@@ -113,69 +141,39 @@ result = run_training(member_name=member)
 result
 ```
 
-### What to replace before running in notebook
+### What You Replace in Notebook
 
-- `MEMBER_NAME = "Daniel"` if needed
-- `EXPERIMENTS = []` with your experiment list.
+- Replace `member = "damour"` with your name.
+- In `experiments/<member>/config.py`, replace `EXPERIMENTS = []` with your experiment list.
+- Optionally edit hyperparameters in that config file.
 
-If `EXPERIMENTS` is empty, training is skipped by design.
-
-## 6. Optional: TensorBoard
+## 6. TensorBoard
 
 ```bash
 tensorboard --logdir ./pong_tensorboard/
 ```
 
-Then open the local TensorBoard URL in your browser.
-
 ## 7. Troubleshooting
 
 ### `zsh: no matches found: stable-baselines3[extra]`
 
-Use quotes:
+Use quotes around bracket extras:
 
 ```bash
-uv pip install 'stable-baselines3[extra]'
+uv pip install 'stable-baselines3[extra]' 'gymnasium[atari]' 'autorom[accept-rom-license]'
 ```
 
-### `ModuleNotFoundError` (for `numpy`, `ale_py`, `stable_baselines3`)
+### `ModuleNotFoundError` for `numpy`, `ale_py`, or `stable_baselines3`
 
 ```bash
 source .venv/bin/activate
-```
-
-```bash
 uv sync
 ```
 
-# Formative 3: Deep Q-Learning for Atari Pong
+### Member is skipped
 
-### `zsh: no matches found: stable-baselines3[extra]`
-
-Use single quotes around bracket packages:
-
-```bash
-uv pip install 'stable-baselines3[extra]' 'gymnasium[atari]' 'gymnasium[accept-rom-license]' ale-py autorom numpy
-```
-
-### `ModuleNotFoundError: No module named 'numpy'`
-
-Install numpy inside the active `.venv`:
-
-```bash
-uv pip install numpy
-```
-
-### Member skipped / no experiments
-
-Add experiments to:
+This means `EXPERIMENTS = []` in that member config. Add experiments in:
 
 - `experiments/daniel/config.py`
 - `experiments/peace/config.py`
 - `experiments/musembi/config.py`
-
-## 8. Team Workflow Suggestion
-
-1. Each person edits only their own `experiments/<name>/config.py`.
-2. Run your own training first: `python main.py <name>`.
-3. When everyone is ready, run all members from menu in `main.py`.
