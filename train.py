@@ -12,6 +12,7 @@
 # IMPORTS
 # ============================================================
 import os
+import sys
 import csv
 import time
 import numpy as np
@@ -131,17 +132,20 @@ def make_env(seed=42):
 # and record their average rewards to prove CNN is superior.
 # ============================================================
 
-def compare_policies(timesteps=50_000):
+def compare_policies(timesteps=50_000, member_name=None):
     """
     Trains both CNNPolicy and MLPPolicy for a short run
     and compares their average rewards.
     Returns a dict with results for both policies.
     """
+    if member_name is None:
+        member_name = MEMBER_NAME
+        
     results = {}
 
     for policy in ["CnnPolicy", "MlpPolicy"]:
         print(f"\n{'='*50}")
-        print(f"  Training with {policy} for {timesteps} steps")
+        print(f"  [{member_name.upper()}] Training with {policy} for {timesteps} steps")
         print(f"{'='*50}")
 
         env = make_env(seed=42)
@@ -196,7 +200,7 @@ def compare_policies(timesteps=50_000):
 
     # Print comparison summary
     print(f"\n{'='*50}")
-    print("  POLICY COMPARISON SUMMARY")
+    print(f"  [{member_name.upper()}] POLICY COMPARISON SUMMARY")
     print(f"{'='*50}")
     print(f"  CNNPolicy avg reward : "
           f"{results['CnnPolicy']['avg_reward']}")
@@ -221,23 +225,48 @@ def compare_policies(timesteps=50_000):
 
 
 # ============================================================
-# HYPERPARAMETER EXPERIMENTS
+# LOAD MEMBER CONFIG
 # ============================================================
-# Each experiment changes ONE or MORE hyperparameters from
-# the baseline to isolate their effect on performance.
-#
-# MEMBER NAME: [Your Name Here]
-# Replace with your actual name in the table below.
-#
-# We define 10 experiments as required. Each experiment:
-#   - Uses a different hyperparameter combination
-#   - Trains for 200,000 steps (enough to see a trend)
-#   - Logs reward and episode length to a CSV
-#   - Records a "noted behavior" observation
+# Dynamically load config from member-specific folder.
+# Falls back to default if not specified.
 # ============================================================
 
-MEMBER_NAME = "Your Name Here"  # CHANGE THIS
+def load_member_config(member_name=None):
+    """
+    Loads member-specific configuration from experiments folder.
+    
+    Args:
+        member_name: name of the member ("damour", "daniel", etc.)
+    
+    Returns:
+        tuple: (MEMBER_NAME, EXPERIMENTS)
+    """
+    if member_name is None:
+        member_name = "damour"
+    
+    member_name = member_name.lower()
+    config_path = f"./experiments/{member_name}/config.py"
+    
+    if not os.path.exists(config_path):
+        print(f"ERROR: Config not found for member: {member_name}")
+        print(f"Expected: {config_path}")
+        sys.exit(1)
+    
+    # Import config module dynamically
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        f"config_{member_name}",
+        config_path
+    )
+    config_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config_module)
+    
+    return config_module.MEMBER_NAME, config_module.EXPERIMENTS
 
+
+# Load default config (damour) initially
+# This will be overridden by main.py for other members
+MEMBER_NAME = "Damour"
 EXPERIMENTS = [
     # --------------------------------------------------------
     # Experiment 1 — BASELINE
@@ -433,31 +462,35 @@ EXPERIMENTS = [
     # This is the config we use for the final model.
     # --------------------------------------------------------
     {
-        "id": 10,
-        "name": "Best Combined",
-        "lr": 5e-4,
-        "gamma": 0.99,
-        "batch_size": 64,
-        "eps_start": 1.0,
-        "eps_end": 0.01,
-        "eps_decay": 0.1,
-        "noted_behavior": (
-            "Best configuration. Slightly higher LR speeds "
-            "up convergence. Larger batch size stabilizes "
-            "gradients. Combined effect produces the highest "
-            "and most consistent reward improvement."
-        )
-    },
-]
+        "id": 10,, member_name=None):
+    """
+    Trains a DQN agent with the given hyperparameter config.
 
+    Args:
+        exp: dict with hyperparameter values
+        total_timesteps: how long to train
+        member_name: name of the member running this experiment
 
-# ============================================================
-# TRAINING FUNCTION
-# ============================================================
-# Runs one experiment with the given hyperparameters.
-# Saves logs to CSV and returns the trained model.
-# ============================================================
+    Returns:
+        model: trained DQN model
+        avg_reward: average reward over final 5 eval episodes
+    """
+    if member_name is None:
+        member_name = MEMBER_NAME
 
+    exp_id = exp["id"]
+    print(f"\n{'='*55}")
+    print(f"  [{member_name.upper()}] EXPERIMENT {exp_id}: {exp['name']}")
+    print(f"  lr={exp['lr']} | gamma={exp['gamma']} | "
+          f"batch={exp['batch_size']}")
+    print(f"  eps: {exp['eps_start']} → {exp['eps_end']} "
+          f"(decay={exp['eps_decay']})")
+    print(f"{'='*55}")
+
+    # Create directories for this experiment (grouped by member)
+    member_lower = member_name.lower()
+    log_dir = f"./logs/{member_lower}/experiment_{exp_id}/"
+    model_dir = f"./models/{member_lower}
 def run_experiment(exp, total_timesteps=200_000):
     """
     Trains a DQN agent with the given hyperparameter config.
@@ -522,7 +555,7 @@ def run_experiment(exp, total_timesteps=200_000):
         exploration_fraction=exp["eps_decay"],
         target_update_interval=1000,
         verbose=0,
-        tensorboard_log=f"./pong_tensorboard/exp_{exp_id}/"
+        tensorboard_log=f"./pong_tensorboard/{member_lower}/exp_{exp_id}/"
     )
 
     # Train
@@ -542,26 +575,30 @@ def run_experiment(exp, total_timesteps=200_000):
         obs = eval_env.reset()
         done = False
         ep_reward = 0
-        while not done:
-            action, _ = model.predict(obs, deterministic=True)
-            obs, reward, done, _ = eval_env.step(action)
-            ep_reward += reward[0]
-        eval_rewards.append(ep_reward)
+        while not done:, member_name=None):
+    """
+    Saves all experiment results to a CSV table grouped by member.
+    results: list of dicts {exp, avg_reward}
+    member_name: name of the member
+    """
+    if member_name is None:
+        member_name = MEMBER_NAME
+    
+    os.makedirs(f"./results/{member_name.lower()}/", exist_ok=True)
+    path = f"./results/{member_name.lower()}/hyperparameter_table.csv"
 
-    avg_reward = round(np.mean(eval_rewards), 2)
-    print(f"  Avg Eval Reward: {avg_reward} | "
-          f"Time: {duration}s")
-    print(f"  Behavior: {exp['noted_behavior']}")
-
-    env.close()
-    eval_env.close()
-
-    return model, avg_reward
-
-
-# ============================================================
-# SAVE HYPERPARAMETER TABLE TO CSV
-# ============================================================
+    with open(path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "Member", "Exp#", "Name",
+            "lr", "gamma", "batch_size",
+            "eps_start", "eps_end", "eps_decay",
+            "Avg Reward", "Noted Behavior"
+        ])
+        for r in results:
+            exp = r["exp"]
+            writer.writerow([
+                member_name===================================
 # This generates the table required in the assignment.
 # It shows all 10 experiments with their hyperparameters
 # and observed behavior in one clean file.
@@ -606,10 +643,43 @@ def save_hyperparameter_table(results):
 # MAIN — runs everything in order
 # ============================================================
 
-if __name__ == "__main__":
+# ============================================================
+# MAIN — runs everything in order
+# ============================================================
 
+def run_training(member_name="damour"):
+    """
+    Main training pipeline for a specific member.
+    
+    Args:
+        member_name: name of the member ("damour", "daniel", etc.)
+    """
+    global MEMBER_NAME, EXPERIMENTS
+    
+    # Load member-specific config
+    MEMBER_NAME, EXPERIMENTS = load_member_config(member_name)
+    member_lower = member_name.lower()
+    
+    # Check if member has experiments configured
+    if not EXPERIMENTS or len(EXPERIMENTS) == 0:
+        print("\n" + "="*55)
+        print(f"  [{MEMBER_NAME.upper()}] NO EXPERIMENTS CONFIGURED")
+        print("="*55)
+        print(f"\n  {MEMBER_NAME} has not yet defined their experiments.")
+        print(f"  Please add 10 experiments to: ./experiments/{member_lower}/config.py")
+        print(f"\n  Each experiment should be a dict with:")
+        print(f"    - id (1-10)")
+        print(f"    - name (experiment name)")
+        print(f"    - lr (learning rate)")
+        print(f"    - gamma (discount factor)")
+        print(f"    - batch_size")
+        print(f"    - eps_start, eps_end, eps_decay")
+        print(f"    - noted_behavior (observation)")
+        print("="*55 + "\n")
+        return None
+    
     print("\n" + "="*55)
-    print("  DQN TRAINING — ATARI PONG")
+    print(f"  DQN TRAINING — ATARI PONG [{MEMBER_NAME.upper()}]")
     print("  Stable Baselines3 + Gymnasium")
     print("="*55)
 
@@ -618,7 +688,7 @@ if __name__ == "__main__":
     # Short 50k step run for each to compare performance.
     # --------------------------------------------------------
     print("\n[PHASE 1] Comparing CNNPolicy vs MLPPolicy...")
-    policy_results = compare_policies(timesteps=50_000)
+    policy_results = compare_policies(timesteps=50_000, member_name=MEMBER_NAME)
 
     # --------------------------------------------------------
     # PHASE 2: Run all 10 hyperparameter experiments
@@ -633,7 +703,8 @@ if __name__ == "__main__":
     for exp in EXPERIMENTS:
         model, avg_reward = run_experiment(
             exp,
-            total_timesteps=200_000
+            total_timesteps=200_000,
+            member_name=MEMBER_NAME
         )
         all_results.append(
             {
@@ -654,20 +725,20 @@ if __name__ == "__main__":
     print("\n[PHASE 3] Saving results...")
 
     # Save hyperparameter table
-    save_hyperparameter_table(all_results)
+    save_hyperparameter_table(all_results, member_name=MEMBER_NAME)
 
-    # Save the best model as dqn_model.zip (as required)
-    os.makedirs("./models/", exist_ok=True)
-    best_model.save("./models/dqn_model")
+    # Save the best model (grouped by member)
+    os.makedirs(f"./models/{member_lower}/", exist_ok=True)
+    best_model.save(f"./models/{member_lower}/dqn_model")
     print(f"\nBest model (Experiment {best_exp_id}) saved as "
-          f"./models/dqn_model.zip")
+          f"./models/{member_lower}/dqn_model.zip")
     print(f"Best avg reward: {best_reward}")
 
     # --------------------------------------------------------
     # PHASE 4: Print final summary
     # --------------------------------------------------------
     print("\n" + "="*55)
-    print("  TRAINING COMPLETE — FINAL SUMMARY")
+    print(f"  TRAINING COMPLETE [{MEMBER_NAME.upper()}]")
     print("="*55)
     print(f"  Policy Comparison:")
     print(f"    CnnPolicy avg reward: "
@@ -682,7 +753,41 @@ if __name__ == "__main__":
               f"({r['exp']['name']:20s}): "
               f"reward = {r['avg_reward']}{marker}")
     print(f"\n  Best Model: Experiment {best_exp_id}")
-    print(f"  Saved to  : ./models/dqn_model.zip")
+    print(f"  Saved to  : ./models/{member_lower}/dqn_model.zip")
     print(f"\n  To visualize training:")
-    print(f"  tensorboard --logdir ./pong_tensorboard/")
-    print("="*55)
+    print(f"  tensorboard --logdir ./pong_tensorboard/{member_lower}/")
+    print("="*55 + "\n")
+    
+    return {
+        "member": MEMBER_NAME,
+        "best_reward": best_reward,
+        "best_exp_id": best_exp_id,
+        "all_results": all_results,
+        "policy_results": policy_results
+    }
+
+
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description="Run DQN training for a specific team member"
+    )
+    parser.add_argument(
+        "--member",
+        type=str,
+        default="damour",
+        choices=["damour", "daniel", "peace", "musembi"],
+        help="Member name to run training for (default: damour)"
+    )
+    
+    args = parser.parse_args()
+    
+    try:
+        result = run_training(member_name=args.member)
+        if result is None:
+            print("\nTraining skipped due to missing configuration.")
+            sys.exit(0)
+    except Exception as e:
+        print(f"ERROR: Training failed: {e}")
+        sys.exit(1)

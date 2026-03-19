@@ -3,110 +3,142 @@
 # ============================================================
 # This module serves as the main entry point for the
 # Deep Q-Learning Pong training pipeline.
+# Allows training for each team member with their own configs.
 # ============================================================
 
 import sys
 import os
+from train import run_training
+
+
+MEMBERS = ["damour", "daniel", "peace", "musembi"]
+
+
+def display_menu():
+    """Display member selection menu."""
+    print("\n" + "="*60)
+    print("  FORMATIVE 3: DEEP Q-LEARNING FOR ATARI PONG")
+    print("="*60)
+    print("\n  SELECT TEAM MEMBER FOR TRAINING:\n")
+    
+    for i, member in enumerate(MEMBERS, 1):
+        print(f"    {i}. {member.capitalize()}")
+    
+    print(f"    {len(MEMBERS) + 1}. Run all members (sequential)")
+    print(f"    0. Exit\n")
+
+
+def get_member_choice():
+    """Prompt user to select a member."""
+    while True:
+        try:
+            choice = input("  Enter your choice (0-5): ").strip()
+            choice = int(choice)
+            
+            if choice == 0:
+                print("\n  Exiting...")
+                sys.exit(0)
+            elif 1 <= choice <= len(MEMBERS):
+                return MEMBERS[choice - 1]
+            elif choice == len(MEMBERS) + 1:
+                return "all"
+            else:
+                print(f"  Invalid choice. Please enter 0-{len(MEMBERS) + 1}")
+        except ValueError:
+            print("  Invalid input. Please enter a number.")
 
 
 def main():
     """
     Main entry point that runs the complete DQN training pipeline.
-    Imports and executes the train module which handles:
-      - Policy comparison (CNN vs MLP)
-      - 10 hyperparameter experiments
-      - Model training and evaluation
-      - Results logging and best model saving
+    Allows selection of which member's training to execute.
     """
     print("\n" + "="*60)
-    print("  FORMATIVE 3: DEEP Q-LEARNING FOR ATARI PONG")
+    print("  DEEP Q-LEARNING FOR ATARI PONG")
     print("="*60)
-    print("\n  Starting DQN training pipeline...\n")
     
-    try:
-        # Import and run the training module
-        from train import (
-            compare_policies,
-            EXPERIMENTS,
-            run_experiment,
-            save_hyperparameter_table
-        )
-        
-        # --------------------------------------------------------
-        # PHASE 1: Compare CNNPolicy vs MLPPolicy
-        # --------------------------------------------------------
-        print("[PHASE 1] Comparing CNNPolicy vs MLPPolicy...")
-        policy_results = compare_policies(timesteps=50_000)
-
-        # --------------------------------------------------------
-        # PHASE 2: Run all 10 hyperparameter experiments
-        # --------------------------------------------------------
-        print("\n[PHASE 2] Running 10 Hyperparameter Experiments...")
-        all_results = []
-        best_reward = float("-inf")
-        best_model = None
-        best_exp_id = None
-
-        for exp in EXPERIMENTS:
-            model, avg_reward = run_experiment(
-                exp,
-                total_timesteps=200_000
-            )
-            all_results.append({
-                "exp": exp,
-                "avg_reward": avg_reward
-            })
-
-            # Track best performing experiment
-            if avg_reward > best_reward:
-                best_reward = avg_reward
-                best_model = model
-                best_exp_id = exp["id"]
-
-        # --------------------------------------------------------
-        # PHASE 3: Save results and best model
-        # --------------------------------------------------------
-        print("\n[PHASE 3] Saving results...")
-        save_hyperparameter_table(all_results)
-
-        # Save the best model
-        os.makedirs("./models/", exist_ok=True)
-        best_model.save("./models/dqn_model")
-        print(f"\nBest model (Experiment {best_exp_id}) saved as "
-              f"./models/dqn_model.zip")
-        print(f"Best avg reward: {best_reward}")
-
-        # --------------------------------------------------------
-        # PHASE 4: Print final summary
-        # --------------------------------------------------------
+    display_menu()
+    choice = get_member_choice()
+    
+    if choice == "all":
         print("\n" + "="*60)
-        print("  TRAINING COMPLETE — FINAL SUMMARY")
+        print("  RUNNING TRAINING FOR ALL MEMBERS (SEQUENTIAL)")
         print("="*60)
-        print(f"  Policy Comparison:")
-        print(f"    CnnPolicy avg reward: "
-              f"{policy_results['CnnPolicy']['avg_reward']}")
-        print(f"    MlpPolicy avg reward: "
-              f"{policy_results['MlpPolicy']['avg_reward']}")
-        print(f"\n  Hyperparameter Experiments:")
-        for r in all_results:
-            marker = " ← BEST" if r["exp"]["id"] == best_exp_id \
-                     else ""
-            print(f"    Exp {r['exp']['id']:2d} "
-                  f"({r['exp']['name']:20s}): "
-                  f"reward = {r['avg_reward']}{marker}")
-        print(f"\n  Best Model: Experiment {best_exp_id}")
-        print(f"  Saved to  : ./models/dqn_model.zip")
-        print(f"\n  To visualize training:")
-        print(f"  tensorboard --logdir ./pong_tensorboard/")
-        print("="*60 + "\n")
         
-    except ImportError as e:
-        print(f"ERROR: Failed to import training module: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"ERROR: Training pipeline failed: {e}")
-        sys.exit(1)
+        all_results = {}
+        for member in MEMBERS:
+            try:
+                print(f"\n\n{'#'*60}")
+                print(f"  STARTING TRAINING FOR: {member.upper()}")
+                print(f"{'#'*60}\n")
+                
+                result = run_training(member_name=member)
+                
+                if result:
+                    all_results[member] = result
+                    print(f"\n{'='*60}")
+                    print(f"  {member.upper()} TRAINING COMPLETED")
+                    print(f"  Best Reward: {result['best_reward']}")
+                    print(f"{'='*60}\n")
+                else:
+                    all_results[member] = None
+                    print(f"\n{'='*60}")
+                    print(f"  {member.upper()} SKIPPED (NO EXPERIMENTS)")
+                    print(f"{'='*60}\n")
+                
+            except Exception as e:
+                print(f"\nERROR training {member}: {e}")
+                all_results[member] = None
+        
+        # Print combined summary
+        print("\n\n" + "="*60)
+        print("  FINAL SUMMARY — ALL MEMBERS")
+        print("="*60)
+        
+        for member in MEMBERS:
+            if all_results[member]:
+                result = all_results[member]
+                print(f"\n  {member.capitalize():10s}: "
+                      f"Best Reward = {result['best_reward']:8.2f} "
+                      f"(Exp {result['best_exp_id']})")
+            else:
+                print(f"\n  {member.capitalize():10s}: NOT TRAINED")
+        
+        print(f"\n{'='*60}\n")
+        
+    else:
+        # Single member training
+        try:
+            print(f"\n  Starting training for {choice.upper()}...\n")
+            result = run_training(member_name=choice)
+            
+            if result:
+                print(f"\n  Training completed for {choice.upper()}!")
+                print(f"  Results saved to: ./results/{choice}/")
+                print(f"  Model saved to:   ./models/{choice}/")
+            else:
+                print(f"\n  {choice.upper()} cannot train yet. Configure experiments first.")
+            
+        except Exception as e:
+            print(f"\n  ERROR: Training failed for {choice}: {e}")
+            sys.exit(1)
 
 
 if __name__ == "__main__":
-    main()
+    # Check if member specified via command line
+    if len(sys.argv) > 1:
+        member = sys.argv[1].lower()
+        if member in MEMBERS:
+            try:
+                print(f"\nTraining for {member}...")
+                run_training(member_name=member)
+            except Exception as e:
+                print(f"ERROR: {e}")
+                sys.exit(1)
+        else:
+            print(f"Unknown member: {member}")
+            print(f"Valid members: {', '.join(MEMBERS)}")
+            sys.exit(1)
+    else:
+        # Interactive menu if no command line argument
+        main()
