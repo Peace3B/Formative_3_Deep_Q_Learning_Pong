@@ -1,0 +1,11 @@
+Member,Exp#,Name,lr,gamma,batch_size,eps_start,eps_end,eps_decay_fraction,buffer_size,learning_starts,Avg Reward,Noted Behavior
+Peace,1,M2 Baseline,0.0001,0.99,32,1.0,0.01,0.10,10000,5000,-21.0,Proper baseline with 500k steps and correct warmup. Agent begins improving after ~50k steps once replay buffer is filled. Reward rises from -21 toward -18 to -15 range.
+Peace,2,Very Low LR,0.00005,0.99,32,1.0,0.01,0.10,1000,500,-21.0,Half the standard learning rate. Weight updates are too small to accumulate meaningful change in 500k steps. Loss decreases very slowly.
+Peace,3,Aggressive LR,0.0005,0.99,32,1.0,0.01,0.10,1000,500,-21.0,5x higher learning rate causes rapid but unstable updates. Reward initially climbs faster than baseline but then oscillates significantly.
+Peace,4,Very Short Horizon,0.0001,0.90,32,1.0,0.01,0.10,1000,500,-21.0,gamma=0.90 makes future rewards decay steeply. Pong rallies last 50-200+ steps so agent struggles to learn defensive positioning.
+Peace,5,Large Batch + Higher LR,0.00025,0.99,128,1.0,0.01,0.10,1000,500,-21.0,Paired increase of batch size and learning rate. Larger batch produces lower-variance gradients; higher LR restores update speed.
+Peace,6,Tiny Batch,0.0001,0.99,16,1.0,0.01,0.10,1000,500,-21.0,batch=16 produces extremely noisy gradients. Reward curve is highly erratic with large swings between episodes.
+Peace,7,Fast Epsilon + Big Buffer,0.0001,0.99,32,1.0,0.01,0.05,1000,500,-21.0,Epsilon decays in first 25k steps. Agent locks into greedy policy very early before it has learned reliable strategies.
+Peace,8,Slow Epsilon Decay,0.0001,0.99,32,1.0,0.01,0.40,1000,500,-21.0,Epsilon decays over 40% of training. Agent remains highly exploratory initially resulting in flat reward but better final learning.
+Peace,9,Early Learning Start,0.0001,0.99,32,1.0,0.01,0.10,1000,100,-21.0,Learning starts immediately after 100 transitions. Early updates are very noisy so buffer is not diverse enough causing unstable early loss.
+Peace,10,M2 Best Combined,0.00025,0.99,128,1.0,0.01,0.15,1000,500,-21.0,Combines all best findings: lr=2.5e-4 fast learning batch=128 stable gradients eps decay over 15% balanced exploration.

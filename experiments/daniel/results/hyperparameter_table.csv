@@ -1,0 +1,11 @@
+Member,Exp#,Name,lr,gamma,batch_size,eps_start,eps_end,eps_decay_fraction,buffer_size,learning_starts,Avg Reward,Noted Behavior
+Daniel,1,Daniel Baseline,0.0001,0.99,32,1.0,0.01,0.10,50000,10000,-21.0,Baseline with proper warmup (10k learning starts). Should show clear learning progression from -21 toward -15.
+Daniel,2,Very Fast LR,0.001,0.99,32,1.0,0.01,0.10,50000,10000,-21.0,10x higher learning rate - likely to diverge or become unstable. Q-values may explode.
+Daniel,3,Moderate Fast LR,0.00025,0.99,32,1.0,0.01,0.10,50000,10000,-21.0,2.5x baseline LR - should learn faster while remaining stable. Good candidate for best config.
+Daniel,4,Extreme Short Horizon,0.0001,0.85,32,1.0,0.01,0.10,50000,10000,-21.0,gamma=0.85 - very short-sighted. Should perform poorly as agent cannot plan rallies longer than ~10 steps.
+Daniel,5,Very Long Horizon,0.0001,0.9995,32,1.0,0.01,0.10,50000,10000,-21.0,gamma near 1.0 - values future rewards heavily. Should perform well but may need more steps to converge.
+Daniel,6,Extra Large Batch,0.0001,0.99,256,1.0,0.01,0.10,100000,10000,-21.0,Very large batch - very stable gradients but slower learning per step. Should show smooth reward curve.
+Daniel,7,Very Fast Epsilon Decay,0.0001,0.99,32,1.0,0.01,0.02,50000,10000,-21.0,Epsilon decays in first 2% of training (10k steps). Agent becomes greedy too early - may plateau at poor policy.
+Daniel,8,Very Slow Epsilon Decay,0.0001,0.99,32,1.0,0.01,0.50,50000,10000,-21.0,Epsilon decays over 50% of training (250k steps). Explores too long - delayed learning but potentially better final policy.
+Daniel,9,Large Buffer + Early Learning,0.0001,0.99,32,1.0,0.01,0.10,200000,5000,-21.0,Large buffer (200k) with early learning start (5k). More diverse replay experiences - should learn faster.
+Daniel,10,Daniel Best Combined,0.00025,0.99,128,1.0,0.01,0.12,100000,10000,-21.0,Combination: moderate LR (2.5e-4), larger batch (128), balanced epsilon decay (12%). Expected best performance.
