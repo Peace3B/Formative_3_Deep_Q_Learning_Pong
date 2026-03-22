@@ -10,7 +10,7 @@ Usage:
 
 Optional arguments:
     --model     Path to the trained model (default: dqn_model.zip)
-    --episodes  Number of episodes to play (default: 5)
+    --episodes  Number of episodes to play (default: 3)
     --no-render Disable game rendering (useful for headless evaluation)
 """
 
@@ -61,122 +61,150 @@ def style(text, color="", bold=False, use_color=True):
     return f"{prefix}{text}{Colors.RESET}"
 
 
-# ---------------------------------------------------------------------------
-# Environment factory — matches the training environment exactly
-# ---------------------------------------------------------------------------
-def create_environment(env_name="ALE/Pong-v5", render=True, custom_window=True):
-    """
-    Create the Atari Pong environment for evaluation.
-    Uses custom pygame window if requested, else falls back to default.
-
-    Args:
-        env_name (str): Name of the Atari environment
-        render (bool): Whether to render the game visually
-        custom_window (bool): Whether to use custom titled window
-
-    Returns:
-        gym.Env: The wrapped environment
-    """
-    if ale_py is None:
-        raise ImportError("ale-py not installed. Run: pip install -r requirements.txt")
-
-    gym.register_envs(ale_py)
+class PongEvaluator:
+    """Class-based evaluator for the trained DQN agent in Atari Pong."""
     
-    if render and custom_window and pygame is not None:
-        render_mode = "rgb_array"
-    else:
-        render_mode = "human" if render else "rgb_array"
+    def __init__(self, model_path="dqn_model.zip", episodes=3, fps=15, render=True, use_color=True, ale_window=False):
+        self.model_path = model_path
+        self.episodes = episodes
+        self.fps = fps
+        self.render_enabled = render
+        self.use_color = use_color
         
-    env = gym.make(env_name, render_mode=render_mode)
-    env = AtariWrapper(env)
-    return env
+        # Check pygame availability for custom window
+        self.custom_window = self.render_enabled and (not ale_window)
+        if self.custom_window and pygame is None:
+            print(style("[WARN] Pygame not found. Falling back to ALE default window.", Colors.YELLOW, use_color=self.use_color))
+            self.custom_window = False
+            
+        self.env = None
+        self.model = None
+        self.screen = None
+        self.clock = None
 
+    def load_model(self):
+        """Load the DQN model from the specified path."""
+        print(style("\nLoading model...", Colors.YELLOW, use_color=self.use_color))
+        if not os.path.exists(self.model_path):
+            print(style(f"[ERROR] Model file not found: {self.model_path}", Colors.RED, bold=True, use_color=self.use_color))
+            print("Make sure the model path is correct and the file exists.")
+            return False
+        self.model = DQN.load(self.model_path)
+        print(style("Model loaded successfully.", Colors.GREEN, use_color=self.use_color))
+        return True
 
-# ---------------------------------------------------------------------------
-# Greedy policy evaluation
-# ---------------------------------------------------------------------------
-def evaluate_agent(model, env, num_episodes=5, use_color=True, custom_window=False, render=False, fps=15):
-    """
-    Run the agent for a given number of episodes using a greedy policy.
-    The agent always picks the action with the highest Q-value — no exploration.
+    def setup_environment(self):
+        """Create and wrap the Atari Pong environment."""
+        print(style("Setting up environment...", Colors.YELLOW, use_color=self.use_color))
+        if ale_py is None:
+            raise ImportError("ale-py not installed. Run: pip install -r requirements.txt")
 
-    Args:
-        model: The loaded DQN model
-        env: The Atari environment
-        num_episodes (int): Number of episodes to run
+        gym.register_envs(ale_py)
+        
+        if self.render_enabled and self.custom_window and pygame is not None:
+            render_mode = "rgb_array"
+        else:
+            render_mode = "human" if self.render_enabled else "rgb_array"
+            
+        env = gym.make("ALE/Pong-v5", render_mode=render_mode)
+        self.env = AtariWrapper(env)
+        print(style("Environment ready.\n", Colors.GREEN, use_color=self.use_color))
 
-    Returns:
-        list: Total rewards per episode
-    """
-    # Pygame setup for custom rendering
-    screen = None
-    clock = None
-    if custom_window and render and pygame is not None:
-        pygame.init()
-        pygame.display.set_caption(WINDOW_TITLE)
-        clock = pygame.time.Clock()
+    def evaluate(self):
+        """Run the evaluation episodes."""
+        if self.custom_window and self.render_enabled and pygame is not None:
+            pygame.init()
+            pygame.display.set_caption(WINDOW_TITLE)
+            self.clock = pygame.time.Clock()
 
-    episode_rewards = []
+        episode_rewards = []
 
-    for episode in range(1, num_episodes + 1):
-        obs, _ = env.reset()
-        total_reward = 0
-        done = False
-        step = 0
+        for episode in range(1, self.episodes + 1):
+            obs, _ = self.env.reset()
+            total_reward = 0
+            done = False
+            step = 0
 
-        print(style(f"\nEpisode {episode} starting...", Colors.CYAN, bold=True, use_color=use_color))
+            print(style(f"\nEpisode {episode} starting...", Colors.CYAN, bold=True, use_color=self.use_color))
 
-        while not done:
-            # Greedy action selection — deterministic=True disables exploration
-            action, _ = model.predict(obs, deterministic=True)
-            obs, reward, terminated, truncated, info = env.step(action)
-            total_reward += reward
-            done = terminated or truncated
-            step += 1
+            while not done:
+                # Greedy action selection — deterministic=True disables exploration
+                action, _ = self.model.predict(obs, deterministic=True)
+                obs, reward, terminated, truncated, info = self.env.step(action)
+                total_reward += reward
+                done = terminated or truncated
+                step += 1
 
-            if custom_window and render and pygame is not None:
-                # Force env to give the base rgb_array
-                frame = env.unwrapped.render()
-                if frame is not None:
-                    # Initialize screen if not done yet based on frame size
-                    if screen is None:
-                        h, w, _ = frame.shape
-                        screen = pygame.display.set_mode((w * WINDOW_SCALE, h * WINDOW_SCALE))
-                    
-                    # Process frame for pygame
-                    # Pygame expects (width, height) and frame is (height, width, channels)
-                    # We transpose to swap width and height axes for Pygame surface
-                    frame_surface = pygame.surfarray.make_surface(np.transpose(frame, (1, 0, 2)))
-                    if WINDOW_SCALE > 1:
-                        frame_surface = pygame.transform.scale(frame_surface, (w * WINDOW_SCALE, h * WINDOW_SCALE))
-                    
-                    screen.blit(frame_surface, (0, 0))
-                    pygame.display.flip()
-                    
-                    # Control playback framerate and check events
-                    # ALE runs at 60Hz and AtariWrapper uses frame-skip=4 by default,
-                    # so 15 ticks/sec matches the default ALE window speed closely.
-                    clock.tick(fps)
-                    for event in pygame.event.get():
-                        if event.type == pygame.QUIT:
-                            done = True
-                            print(style("Window closed by user.", Colors.YELLOW, use_color=use_color))
-                            break
+                if self.custom_window and self.render_enabled and pygame is not None:
+                    frame = self.env.unwrapped.render()
+                    if frame is not None:
+                        if self.screen is None:
+                            h, w, _ = frame.shape
+                            self.screen = pygame.display.set_mode((w * WINDOW_SCALE, h * WINDOW_SCALE))
+                        
+                        frame_surface = pygame.surfarray.make_surface(np.transpose(frame, (1, 0, 2)))
+                        if WINDOW_SCALE > 1:
+                            frame_surface = pygame.transform.scale(frame_surface, (w * WINDOW_SCALE, h * WINDOW_SCALE))
+                        
+                        self.screen.blit(frame_surface, (0, 0))
+                        pygame.display.flip()
+                        
+                        self.clock.tick(self.fps)
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT:
+                                done = True
+                                print(style("Window closed by user.", Colors.YELLOW, use_color=self.use_color))
+                                break
 
-        episode_rewards.append(total_reward)
-        print(
-            style(
-                f"Episode {episode} finished - Total Reward: {total_reward:.1f}  Steps: {step}",
-                Colors.GREEN,
-                use_color=use_color,
+            episode_rewards.append(total_reward)
+            print(
+                style(
+                    f"Episode {episode} finished - Total Reward: {total_reward:.1f}  Steps: {step}",
+                    Colors.GREEN,
+                    use_color=self.use_color,
+                )
             )
-        )
 
-    if screen is not None:
-        pygame.quit()
+        if self.screen is not None:
+            pygame.quit()
 
-    return episode_rewards
+        return episode_rewards
 
+    def run(self):
+        """Execute the full evaluation pipeline and print summary."""
+        print("=" * 70)
+        print(style("Deep Q Learning Group 3 - DQN Agent Evaluation (Atari Pong)", Colors.CYAN, bold=True, use_color=self.use_color))
+        print("=" * 70)
+        print(f"Model : {self.model_path}")
+        print(f"Episodes : {self.episodes}")
+        print(f"Policy : Greedy (deterministic=True, no exploration)")
+        print(f"Rendering : {'Disabled' if not self.render_enabled else 'Enabled'}")
+        if self.render_enabled:
+            print(f"Window title : {WINDOW_TITLE if self.custom_window else 'The Arcade Learning Environment (ALE default)'}")
+            if self.custom_window:
+                print(f"Speed (FPS) : {self.fps}")
+        print(f"Colors : {'Disabled' if not self.use_color else 'Enabled'}")
+        print("=" * 70)
+
+        if not self.load_model():
+            return
+            
+        self.setup_environment()
+        rewards = self.evaluate()
+
+        print("\n" + "=" * 70)
+        print(style("Group 3 Evaluation Complete", Colors.CYAN, bold=True, use_color=self.use_color))
+        print("=" * 70)
+        print(f"Episodes played   : {self.episodes}")
+        if len(rewards) > 0:
+            print(f"Mean reward       : {np.mean(rewards):.2f}")
+            print(f"Best episode      : {max(rewards):.1f}")
+            print(f"Worst episode     : {min(rewards):.1f}")
+            print(f"All rewards       : {[round(r, 1) for r in rewards]}")
+        print("=" * 70)
+
+        if self.env:
+            self.env.close()
 
 # ---------------------------------------------------------------------------
 # Main
@@ -192,8 +220,8 @@ def main():
     parser.add_argument(
         "--episodes",
         type=int,
-        default=5,
-        help="Number of episodes to play",
+        default=3,
+        help="Number of episodes to play (default: 3)",
     )
     parser.add_argument(
         "--fps",
@@ -217,68 +245,16 @@ def main():
         help="Use ALE default render window title (disables custom scaling and title)",
     )
     args = parser.parse_args()
-    use_color = not args.no_color
-    use_render = not args.no_render
-    use_custom_window = use_render and (not args.ale_window)
-
-    if use_custom_window and pygame is None:
-        print(style("[WARN] Pygame not found. Falling back to ALE default window.", Colors.YELLOW, use_color=use_color))
-        use_custom_window = False
-
-    # Validate model path
-    if not os.path.exists(args.model):
-        print(style(f"[ERROR] Model file not found: {args.model}", Colors.RED, bold=True, use_color=use_color))
-        print("Make sure the model path is correct and the file exists.")
-        return
-
-    print("=" * 70)
-    print(style("Deep Q Learning Group 3 - DQN Agent Evaluation (Atari Pong)", Colors.CYAN, bold=True, use_color=use_color))
-    print("=" * 70)
-    print(f"Model : {args.model}")
-    print(f"Episodes : {args.episodes}")
-    print(f"Policy : Greedy (deterministic=True, no exploration)")
-    print(f"Rendering : {'Disabled' if args.no_render else 'Enabled'}")
-    if use_render:
-        print(f"Window title : {WINDOW_TITLE if use_custom_window else 'The Arcade Learning Environment (ALE default)'}")
-        if use_custom_window:
-            print(f"Speed (FPS) : {args.fps}")
-    print(f"Colors : {'Disabled' if args.no_color else 'Enabled'}")
-    print("=" * 70)
-
-    # Load the trained model
-    print(style("\nLoading model...", Colors.YELLOW, use_color=use_color))
-    model = DQN.load(args.model)
-    print(style("Model loaded successfully.", Colors.GREEN, use_color=use_color))
-
-    # Create environment
-    print(style("Setting up environment...", Colors.YELLOW, use_color=use_color))
-    env = create_environment(render=use_render, custom_window=use_custom_window)
-    print(style("Environment ready.\n", Colors.GREEN, use_color=use_color))
-
-    # Run evaluation episodes
-    rewards = evaluate_agent(
-        model, 
-        env, 
-        num_episodes=args.episodes, 
-        use_color=use_color,
-        custom_window=use_custom_window,
-        render=use_render,
-        fps=args.fps
+    
+    evaluator = PongEvaluator(
+        model_path=args.model,
+        episodes=args.episodes,
+        fps=args.fps,
+        render=not args.no_render,
+        use_color=not args.no_color,
+        ale_window=args.ale_window
     )
-
-    # Summary
-    print("\n" + "=" * 70)
-    print(style("Group 3 Evaluation Complete", Colors.CYAN, bold=True, use_color=use_color))
-    print("=" * 70)
-    print(f"Episodes played   : {args.episodes}")
-    print(f"Mean reward       : {np.mean(rewards):.2f}")
-    print(f"Best episode      : {max(rewards):.1f}")
-    print(f"Worst episode     : {min(rewards):.1f}")
-    print(f"All rewards       : {[round(r, 1) for r in rewards]}")
-    print("=" * 70)
-
-    env.close()
-
+    evaluator.run()
 
 if __name__ == "__main__":
     main()
