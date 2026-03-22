@@ -190,9 +190,10 @@ This repository contains our team's complete training code, model artifacts, and
 
 ## 8. Video Demonstration
 
-**Watch our project video here:**
+Our submission video demonstrates our best-trained RL agent successfully playing Atari Pong.
 
-<video src="https://raw.githubusercontent.com/Peace3B/Formative_3_Deep_Q_Learning_Pong/main/video.mp4" controls="controls" width="100%">
-</video>
+**Watch our project video below:**
 
-_[Click here to watch the direct video if the preview above doesn't load](https://github.com/Peace3B/Formative_3_Deep_Q_Learning_Pong/raw/main/video.mp4)_
+[![Deep Q Learning Group 3 - Atari Pong](https://img.youtube.com/vi/rDb2NSE2Moc/maxresdefault.jpg)](https://youtu.be/rDb2NSE2Moc)
+
+_[Click here to watch the video on YouTube](https://youtu.be/rDb2NSE2Moc)_
